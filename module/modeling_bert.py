@@ -24,9 +24,9 @@ import torch
 from torch import nn
 from torch.nn import CrossEntropyLoss, MSELoss
 
-from transformers.activations import gelu, gelu_new, swish
-from transformers.configuration_bert import BertConfig
-from transformers.file_utils import add_start_docstrings, add_start_docstrings_to_callable
+from transformers.activations import gelu, gelu_new, silu
+from transformers import BertConfig
+from transformers.file_utils import add_start_docstrings
 from transformers.modeling_utils import PreTrainedModel, prune_linear_layer
 
 
@@ -57,6 +57,23 @@ BERT_PRETRAINED_MODEL_ARCHIVE_LIST = [
     "wietsedv/bert-base-dutch-cased",
     # See all BERT models at https://huggingface.co/models?filter=bert
 ]
+
+def add_start_docstrings_to_callable(*docstr):
+    def docstring_decorator(fn):
+        class_name = ":class:`~transformers.{}`".format(fn.__qualname__.split(".")[0])
+        intro = "   The {} forward method, overrides the :func:`__call__` special method.".format(class_name)
+        note = r"""
+
+    .. note::
+        Although the recipe for forward pass needs to be defined within
+        this function, one should call the :class:`Module` instance afterwards
+        instead of this since the former takes care of running the
+        pre and post processing steps while the latter silently ignores them.
+        """
+        fn.__doc__ = intro + note + "".join(docstr) + (fn.__doc__ if fn.__doc__ is not None else "")
+        return fn
+
+    return docstring_decorator
 
 
 def load_tf_weights_in_bert(model, config, tf_checkpoint_path):
@@ -135,7 +152,7 @@ def mish(x):
     return x * torch.tanh(nn.functional.softplus(x))
 
 
-ACT2FN = {"gelu": gelu, "relu": torch.nn.functional.relu, "swish": swish, "gelu_new": gelu_new, "mish": mish}
+ACT2FN = {"gelu": gelu, "relu": torch.nn.functional.relu, "silu": silu, "gelu_new": gelu_new, "mish": mish}
 
 
 BertLayerNorm = torch.nn.LayerNorm

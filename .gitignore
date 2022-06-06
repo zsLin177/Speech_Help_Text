@@ -1,0 +1,13 @@
+# data
+ASR-data
+data
+CNERTA
+
+# other package
+supar
+wenet
+
+# log
+*.log
+*.txt
+*.pyc

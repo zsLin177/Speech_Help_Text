@@ -14,18 +14,18 @@ class Alphabet:
         self.instances = []
         self.keep_growing = keep_growing
         self.next_index = 0
-        if self.padflag:
-            self.add(self.PAD)
-            self.pad_id = self.get_index(self.PAD)
-        if self.unkflag:
-            self.add(self.UNKNOWN)
-            self.unk_id = self.get_index(self.UNKNOWN)
         if self.blankflag:
             self.add(self.BLANK)
             self.blank_id = self.get_index(self.BLANK)
+        if self.unkflag:
+            self.add(self.UNKNOWN)
+            self.unk_id = self.get_index(self.UNKNOWN)
         if path:
             self.keep_growing = False
             self.load(path)
+        if self.padflag:
+            self.add(self.PAD)
+            self.pad_id = self.get_index(self.PAD)
 
     def clear(self, keep_growing=True):
         self.instance2index = {}

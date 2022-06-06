@@ -8,7 +8,7 @@ from ZEN import ZenModel
 from module.attention_fusion_layer import ShortCutAttentionFusionLayer, GateAttentionFusionLayer
 from .base_encoder_v2 import BaseEncoder
 from .umt import CoupledCMT
-from transformers.configuration_bert import BertConfig
+from transformers import BertConfig
 
 
 class MultitaskTaggingModel(BaseEncoder):
@@ -95,10 +95,12 @@ class MultitaskTaggingModel(BaseEncoder):
         else:
             textual_repr = self.text_encoder(input["input_ids"], attention_mask=input["input_masks"])[0]
         audio_repr, audio_mask = self.audio_encoder(input["audio_features"], input["audio_feature_masks"])
+        # slzhou: logit for masked ctc
         audio_logit = torch.matmul(audio_repr, self.audio_embedding.weight.data.permute(1, 0))
         audio_prob = masked_softmax(audio_logit, input["char_emb_mask"], 2)
         char_emb_ids = input["char_emb_ids"].unsqueeze(1).expand(-1, audio_repr.size(1), -1)
         time_series_feat = torch.gather(audio_prob, 2, char_emb_ids).permute(0, 2, 1)
+        # slzhou: [batch_size, seq_len, 366] the prob of each char align to each frame
         time_series_feat = time_series_feat.masked_fill(~audio_mask.unsqueeze(1), 0)
 
         fusional_textual_repr = self.fusion_layer(textual_repr, input["input_masks"], audio_repr, audio_mask.float())
@@ -123,3 +125,4 @@ def masked_softmax(vector: torch.Tensor, mask: torch.Tensor, dim: int = -1) -> t
             mask = mask.unsqueeze(1)
         vector = vector + (1.0 - mask) * -10000.0
     return F.softmax(vector, dim=dim)
+

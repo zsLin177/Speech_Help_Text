@@ -5,7 +5,7 @@ import json
 import pickle
 from utils.data import Data
 from module.multitask_tagging_model import MultitaskTaggingModel
-import nni
+# import nni
 
 
 def str2bool(v):
@@ -38,7 +38,7 @@ if __name__ == '__main__':
     audio_encoder_lr = 0.00002
     max_grad_norm = 5
     ctc_coef = 0.05
-    n_blocks = 9
+    n_blocks = 6
 
     parser = argparse.ArgumentParser()
     data_arg = add_argument_group('Data')
@@ -114,13 +114,12 @@ if __name__ == '__main__':
     for arg in vars(args):
         print(arg, ":", getattr(args, arg))
     set_seed(args.random_seed)
-    # data = Data(args)
-    # with open(args.generated_data_directory+"multitask_giga_emb.pkl", "wb") as f:
+    data = Data(args)
+    # with open(args.generated_data_directory+"multitask_no_emb.pkl", "wb") as f:
     #     pickle.dump(data, f)
-    with open(args.generated_data_directory + "unified_data_full.pkl", "rb") as f:
-        data = pickle.load(f)
+    # with open(args.generated_data_directory + "multitask_no_emb.pkl", "rb") as f:
+    #     data = pickle.load(f)
     model = MultitaskTaggingModel(args, data)
-    print("Loading pretrained audio encoder param")
     # pretrained_audioencoder_dict = torch.load(args.generated_param_directory + "masked_pretrained_audio_full_epoch_150.model")
     # # model.load_state_dict(audio_param)
     # model_dict = model.state_dict()

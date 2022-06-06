@@ -85,9 +85,9 @@ if __name__ == '__main__':
     for arg in vars(args):
         print(arg, ":",  getattr(args, arg))
     set_seed(args.random_seed)
-    # data = Data(args)
-    with open(args.generated_data_directory + "unified_data_full.pkl", "rb") as f:
-        data = pickle.load(f)
+    data = Data(args)
+    # with open(args.generated_data_directory + "unified_data_full.pkl", "rb") as f:
+    #     data = pickle.load(f)
     # with open(args.generated_data_directory+"singlemodal.pkl", "wb") as f:
     #     pickle.dump(data, f)
     # with open(args.generated_data_directory+"singlemodal.pkl", 'rb') as f:
@@ -96,14 +96,16 @@ if __name__ == '__main__':
     model = SinglemodalTaggingModel(args, data)
     if args.use_gpu:
         model = model.cuda()
-    model.load_state_dict(torch.load("/home/suidianbo/program/unified_encoder/data/generated_data/model_param/pure_BERT_Flat_NER_epoch_5_f1_0.7666.model"))
-    # for n, p in model.named_parameters():
-    #     print(n)
+    # model.load_state_dict(torch.load("/opt/data/private/slzhou/M3T-CNERTA/data/generated_data/model_param/pure_BERT_Nested_NER_epoch_6_f1_0.8176.model"))
+    # model.load_state_dict(torch.load("/opt/data/private/slzhou/M3T-CNERTA/data/generated_data/bert_base_useemb/bert_base_useembpure_BERT_Nested_NER_epoch_9_f1_0.8199.model"))
+    for n, p in model.named_parameters():
+        print(n)
     # # # model = SetPred4NNER(args, data.relational_alphabet.size())
     if args.adversarial_training:
         from trainer.fgm_trainer import Trainer
     else:
         from trainer.trainer import Trainer
     trainer = Trainer(model, data, args)
-
-    trainer.output("valid", "./bert_flat_7666_dev.txt")
+    trainer.train_model()
+    # trainer.eval_model('test')
+    # trainer.output("test", "./bert_base_nested_test.txt")

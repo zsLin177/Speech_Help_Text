@@ -1,0 +1,54 @@
+accum_grad: 2
+cmvn_file: /opt/data/private/slzhou/M3T-CNERTA/ASR-data/global_cmvn
+dataset_conf:
+  batch_conf:
+    batch_size: 16
+    batch_type: static
+  fbank_conf:
+    dither: 0.1
+    frame_length: 25
+    frame_shift: 10
+    num_mel_bins: 80
+  filter_conf:
+    max_length: 40960
+    min_length: 0
+    token_max_length: 200
+    token_min_length: 1
+  resample_conf:
+    resample_rate: 16000
+  shuffle: true
+  shuffle_conf:
+    shuffle_size: 1500
+  sort: true
+  sort_conf:
+    sort_size: 500
+  spec_aug: true
+  spec_aug_conf:
+    max_f: 10
+    max_t: 50
+    num_f_mask: 2
+    num_t_mask: 2
+  speed_perturb: true
+encoder: transformer
+encoder_conf:
+  attention_dropout_rate: 0.0
+  attention_heads: 4
+  dropout_rate: 0.1
+  input_layer: conv2d
+  linear_units: 2048
+  normalize_before: true
+  num_blocks: 6
+  output_size: 512
+  positional_dropout_rate: 0.1
+grad_clip: 5
+input_dim: 80
+is_json_cmvn: true
+log_interval: 100
+max_epoch: 100
+optim: adam
+optim_conf:
+  lr: 0.002
+output_dim: 4233
+scheduler: warmuplr
+scheduler_conf:
+  warmup_steps: 25000

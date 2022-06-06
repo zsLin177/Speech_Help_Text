@@ -5,9 +5,12 @@ from random import shuffle
 import torchaudio as ta
 import torch
 import random
-
+import pdb
 
 def emb_feature(example, char_alphabet, max_seq_length):
+    '''
+    slz: just used for ctc? also add cls and sep, but </unk> is acutally added?
+    '''
     char_tokens = []
     for i, char in enumerate(example.text):
         char_tokens.append(char)
@@ -21,6 +24,7 @@ def emb_feature(example, char_alphabet, max_seq_length):
     for id in char_emb_ids:
         char_emb_mask[id] = 1
     char_emb_mask[char_alphabet.blank_id] = 1
+    # all pad to the max_seq_length
     while len(char_emb_ids) < max_seq_length:
         char_emb_ids.append(char_alphabet.pad_id)
     return char_emb_ids, char_emb_len, char_emb_mask
@@ -111,9 +115,17 @@ def word2vec_feature(example, alphabet, max_seq_length):
     char_input_ids = [alphabet.get_index(ele) for ele in char_tokens]
     return char_input_ids
 
+def wenet_audio_feature(example, args):
+    waveform, sample_frequency = ta.load(example.audio)
+    waveform = waveform * (1 << 15)
+    mat = ta.compliance.kaldi.fbank(waveform, num_mel_bins=args.num_mel_bins, frame_length=25, frame_shift=10,
+                                    dither=0.0, energy_floor=0.0, sample_frequency=sample_frequency)
+    return mat
+
 
 def audio_feature(example, args):
-    wavform, sample_frequency = ta.load_wav(args.audio_directory + example.audio + ".wav")
+    # wavform, sample_frequency = ta.load_wav(args.audio_directory + example.audio + ".wav")
+    wavform, sample_frequency = ta.load_wav(example.audio)
     feature = ta.compliance.kaldi.fbank(wavform, num_mel_bins=args.num_mel_bins, sample_frequency=sample_frequency, dither=0.0)
     if args.normalization:
         std, mean = torch.std_mean(feature)

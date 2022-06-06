@@ -1,6 +1,6 @@
 import torch.nn as nn
 import torch
-from transformers.configuration_bert import BertConfig
+from transformers import BertConfig
 import copy, math
 from .modeling_bert import BertEncoder, BertIntermediate, BertAttention, BertOutput
 

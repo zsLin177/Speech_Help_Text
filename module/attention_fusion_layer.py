@@ -1,7 +1,7 @@
 import torch.nn as nn
 import torch
 from .modeling_bert import BertAttention, BertIntermediate, BertOutput
-from transformers.configuration_bert import BertConfig
+from transformers import BertConfig
 
 
 class ShortCutAttentionFusionLayer(nn.Module):
