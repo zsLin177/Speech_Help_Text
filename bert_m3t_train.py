@@ -1,10 +1,11 @@
 import argparse, os, torch
+from distutils.command.config import config
 import random
 import numpy as np
-import json
+import yaml
 import pickle
 from utils.data import Data
-from module.multitask_tagging_model import MultitaskTaggingModel
+from module.multitask_tagging_model import SpeechSeqtagModel
 # import nni
 
 
@@ -82,6 +83,8 @@ if __name__ == '__main__':
     model_arg.add_argument('--use_emb', type=str2bool, default=True)
     model_arg.add_argument('--emb_dim', type=int, default=256)
     model_arg.add_argument('--random_emb', type=str2bool, default=True)
+    model_arg.add_argument("--ctc_conf", type=str)
+    model_arg.add_argument('--audio_checkpoint', type=str, default='None')
 
     learning_arg = add_argument_group('Learning')
     learning_arg.add_argument('--max_audio_length', type=int, default=1468)
@@ -133,7 +136,13 @@ if __name__ == '__main__':
     #     pickle.dump(data, f)
     # with open(args.generated_data_directory + "multitask_no_emb.pkl", "rb") as f:
     #     data = pickle.load(f)
-    model = MultitaskTaggingModel(args, data)
+
+    with open(args.ctc_conf, 'r') as fin:
+        configs = yaml.load(fin, Loader=yaml.FullLoader)
+    # configs['max_audio_length'] = args.max_audio_length
+    configs['use_gpu'] = args.use_gpu
+
+    model = SpeechSeqtagModel(args, data, configs)
     # pretrained_audioencoder_dict = torch.load(args.generated_param_directory + "masked_pretrained_audio_full_epoch_150.model")
     # # model.load_state_dict(audio_param)
     # model_dict = model.state_dict()
@@ -142,6 +151,7 @@ if __name__ == '__main__':
     # model.load_state_dict(model_dict)
     for n, p in model.named_parameters():
         print(n)
+    print(model)
     if args.adversarial_training:
         from trainer.fgm_trainer import Trainer
     else:

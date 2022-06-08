@@ -55,7 +55,7 @@ class Trainer(nn.Module):
                 if not batch_features:
                     continue
                 batch = self.model.batchify(batch_features)
-                loss = self.model.neg_log_likelihood(batch)
+                loss = self.model.neg_log_likelihood(batch, self.data.char_alphabet.pad_id)
                 avg_loss.update(loss.item(), 1)
                 # Optimize
                 loss.backward()
@@ -410,7 +410,7 @@ class Trainer(nn.Module):
             self.scheduler = WarmupLR(self.optimizer, warmup_steps=self.args.wp_steps)
             self.scheduler.set_step(-1)
         print(self.optimizer)
-        print(self.scheduler)
+        # print(self.scheduler)
 
     def output(self, name, file_name):
         if name == "train":

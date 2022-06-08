@@ -148,7 +148,10 @@ def convert_examples_to_features(examples, nested_label_alphabet, flat_label_alp
         audio_feat = None
         char_emb_ids, char_len, char_emb_mask = emb_feature(example, char_alphabet, args.max_seq_length)
         if args.use_audio_feature:
-            audio_feat = audio_feature(example, args)
+            if not args.wenet_f:
+                audio_feat = audio_feature(example, args)
+            else:
+                audio_feat = wenet_audio_feature(example, args)
         if char_tokenizer:
             char_input_ids, char_input_mask, char_tokens = char_feature(example, char_tokenizer, args.max_seq_length)
             char_nested_label, char_nested_label_mask = linearize_label(example, args.max_seq_length, schema=args.schema)
