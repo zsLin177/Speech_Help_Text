@@ -64,7 +64,7 @@ class SinglemodalTaggingModel(BaseEncoder):
         _, best_path = self.crf.viterbi_decode(crf_input, input["label_mask"])
         return best_path
 
-    def neg_log_likelihood(self, input):
+    def neg_log_likelihood(self, input, char_pad_id=4232):
         crf_input = self.get_crf_input(input)
         total_loss = self.crf.neg_log_likelihood_loss(crf_input, input["label_mask"], input["label_ids"])
         # _, best_path = self.crf.viterbi_decode(crf_input, input["input_masks"])

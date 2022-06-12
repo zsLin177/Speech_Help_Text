@@ -1,0 +1,19 @@
+python joint_tokenized_txt_audio_train.py --processed_file ./data/generated_data/wenet_wo366_time_feat/data.pkl \
+                                --bert_directory /opt/data/private/slzhou/PLMs/bert-base-chinese \
+                                --generated_param_directory ./data/generated_data/joint_tokenized_wi-pretrained-audiotoken/ \
+                                --emb_file None \
+                                --schema BILOU \
+                                --ner_type Nested_NER \
+                                --use_audio_feature True \
+                                --audio_hidden_dim 512 \
+                                --audio_directory notneeded \
+                                --token_audio_checkpoint ./data/generated_data/token_audio_crf/best.model \
+                                --ctc_conf conf/only_ctc_alldata.yaml \
+                                --ctc_checkpoint /opt/data/private/slzhou/wenet/examples/aishell/s0/exp/only_ctc_alldata/best.pt \
+                                --num_mel_bins 80 \
+                                --vocab_path ./ASR-data/dict/char_dict.json \
+                                --text_encoder BERT \
+                                --use_emb False \
+                                --max_epoch 70 \
+                                --optimizer Adam \
+                                --visible_gpu 1 

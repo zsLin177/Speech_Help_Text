@@ -13,7 +13,7 @@ from utils.metric import get_flat_ner_fmeasure, get_nested_ner_fmeasure, get_fla
 from wenet.utils.scheduler import WarmupLR
 
 class Trainer(nn.Module):
-    def __init__(self, model, data, args, detailed_lr=True, onlyasr=False):
+    def __init__(self, model, data, args, detailed_lr=True, onlyasr=False, doublecrf=False):
         super().__init__()
         self.args = args
         self.model = model
@@ -25,8 +25,10 @@ class Trainer(nn.Module):
                 self.label_alphabet = self.data.flat_label_alphabet
             else:
                 raise Exception("Unsupport NER type: %s" % (self.args.ner_type))
-        
-        self.assign_optimizer(detailed=detailed_lr)
+        if not doublecrf:
+            self.assign_optimizer(detailed=detailed_lr)
+        else:
+            self.assign_optimizer_for_JointTokenSeqtagModel()
         if args.use_gpu:
             self.model = self.model.to(torch.device("cuda"))
 
@@ -63,9 +65,11 @@ class Trainer(nn.Module):
                     torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.args.max_grad_norm)
                 if (batch_id + 1) % self.args.gradient_accumulation_steps == 0:
                     self.optimizer.step()
+                    if hasattr(self, 'scheduler'):
+                        self.scheduler.step()
                     self.model.zero_grad()
                 if batch_id % 100 == 0 and batch_id != 0:
-                    print("     Instance: %d; loss: %.4f" % (start, avg_loss.avg), flush=True)
+                    print("     Instance: %d; loss: %.4f; lr: %.8f" % (start, avg_loss.avg, self.optimizer.param_groups[1]['lr']), flush=True)
             gc.collect()
             torch.cuda.empty_cache()
             print("=== Epoch %d Test ===" % epoch, flush=True)
@@ -80,11 +84,14 @@ class Trainer(nn.Module):
             # torch.save(best_param, best_param_name)
             if f > best_dev_f1:
                 print("Achieving Best Result on Dev Set.", flush=True)
-                best_param_name = self.args.generated_param_directory + "%s_%s_epoch_%d_f1_%.4f.model" %(self.model.name, self.args.ner_type, epoch, f)
+                best_param_name = self.args.generated_param_directory + 'best.model'
                 best_param = copy.deepcopy(self.model.state_dict())
                 torch.save(best_param, best_param_name)
                 best_dev_f1 = f
                 best_dev_result_epoch = epoch
+            current_param_name = self.args.generated_param_directory + 'current.model'
+            current_param = copy.deepcopy(self.model.state_dict())
+            torch.save(current_param, current_param_name)
             gc.collect()
             torch.cuda.empty_cache()
         print("Best result on Dev set is %f achieving at epoch %d." % (best_dev_f1, best_dev_result_epoch),
@@ -399,8 +406,19 @@ class Trainer(nn.Module):
             else:
                 raise Exception("Invalid optimizer.")
         else:
+            grouped_params = [
+                {
+                'params': [p for n, p in self.model.named_parameters() if 'crf' not in n],
+                'lr': self.args.lr
+                },
+                {
+                'params': [p for n, p in self.model.named_parameters() if 'crf' in n],
+                'lr': self.args.crf_lr
+                }
+            ]
             if self.args.optimizer == 'Adam':
-                self.optimizer = optim.Adam(self.model.parameters(), self.args.lr)
+                # self.optimizer = optim.Adam(self.model.parameters(), self.args.lr)
+                self.optimizer = optim.Adam(grouped_params)
             elif self.args.optimizer == 'AdamW':
                 self.optimizer = AdamW(self.model.parameters(), self.args.lr)
             elif self.args.optimizer == "SGD":
@@ -411,6 +429,35 @@ class Trainer(nn.Module):
             self.scheduler.set_step(-1)
         print(self.optimizer)
         # print(self.scheduler)
+
+    def assign_optimizer_for_JointTokenSeqtagModel(self):
+        grouped_params = [
+            {
+            'params': [p for n, p in self.model.named_parameters() if 'crf' not in n and 'text_encoder' in n],
+            'lr': self.args.textual_encoder_lr
+            },
+            {
+            'params': [p for n, p in self.model.named_parameters() if 'crf' in n and 'text_encoder' in n],
+            'lr': self.args.textual_crf_lr
+            },
+            {
+            'params': [p for n, p in self.model.named_parameters() if 'crf' not in n and 'audio_model' in n],
+            'lr': self.args.audio_encoder_lr
+            },
+            {
+            'params': [p for n, p in self.model.named_parameters() if 'crf' in n and 'audio_model' in n],
+            'lr': self.args.audio_crf_lr
+            }
+        ]
+        if self.args.optimizer == 'Adam':
+                self.optimizer = optim.Adam(grouped_params)
+        elif self.args.optimizer == 'AdamW':
+            self.optimizer = AdamW(grouped_params)
+        elif self.args.optimizer == "SGD":
+            self.optimizer = optim.SGD(grouped_params)
+        else:
+            raise Exception("Invalid optimizer.")
+        print(self.optimizer)
 
     def output(self, name, file_name):
         if name == "train":

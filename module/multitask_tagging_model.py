@@ -10,6 +10,8 @@ from .base_encoder_v2 import BaseEncoder
 from .umt import CoupledCMT
 from transformers import BertConfig
 from wenet.transformer.asr_model import init_ctc_model
+from wenet.transformer.cma import CTCAlignFusion
+import pdb
 
 
 class MultitaskTaggingModel(BaseEncoder):
@@ -196,6 +198,121 @@ class SpeechSeqtagModel(BaseEncoder):
         return self.args.crf_coef * crf_loss + self.args.ctc_coef * ctc_loss
 
     
+class TokenizedAudioReprSeqtagModel(BaseEncoder):
+    def __init__(self, args, data, config):
+        super(TokenizedAudioReprSeqtagModel, self).__init__(args)
+        self.audio_encoder = init_ctc_model(config)
+        if self.args.ctc_checkpoint != 'None':
+            print('loading audio model from checkpoint %s' % self.args.ctc_checkpoint)
+            self.audio_encoder.load_state_dict(torch.load(self.args.ctc_checkpoint))
+        
+        if args.ner_type == "Flat_NER":
+            label_dim = data.flat_label_alphabet.size()
+        else:
+            label_dim = data.nested_label_alphabet.size()
+
+        # audio crf
+        # self.bos_eos_embed = nn.Embedding(2, self.audio_encoder.encoder._output_size)
+        self.tokenized_sp_embed = CTCAlignFusion(self.audio_encoder.encoder._output_size)
+        self.hidden2tag = nn.Linear(self.audio_encoder.encoder._output_size, label_dim+2)
+        self.crf = CRF(label_dim, args.use_gpu, args.crf_reduction)
+
+        # if args.fix_embeddings:
+        #     self.text_encoder.embeddings.word_embeddings.weight.requires_grad = False
+        #     self.text_encoder.embeddings.position_embeddings.weight.requires_grad = False
+        #     self.text_encoder.embeddings.token_type_embeddings.weight.requires_grad = False
+    
+    def get_crf_input(self, input):
+        audio_repr, audio_mask = self.audio_encoder._forward_encoder(input["audio_features"], input["audio_feautre_lengths"])
+        audio_mask = audio_mask.squeeze(1)
+        encoder_out_lens = audio_mask.sum(1)
+        probs = self.audio_encoder.ctc.probs(audio_repr)
+        tokenized_sp_repr = self.tokenized_sp_embed.get_tokenized_sp_repr(audio_repr, input['char_emb_ids'], probs, ~(input["input_masks"].bool()))
+        hidden_repr = self.hidden2tag(tokenized_sp_repr)
+        return hidden_repr, audio_repr, encoder_out_lens, tokenized_sp_repr, audio_mask
+
+
+    def forward(self, input):
+        crf_input, _, _, tokenized_sp_repr, audio_mask = self.get_crf_input(input)
+        _, best_path = self.crf.viterbi_decode(crf_input, input["label_mask"])
+        return best_path
+    
+    def neg_log_likelihood(self, input, char_alphabet_pad_id):
+        crf_input, audio_repr, audio_output_lengths, tokenized_sp_repr, audio_mask = self.get_crf_input(input)
+        crf_loss = self.crf.neg_log_likelihood_loss(crf_input, input["label_mask"], input["label_ids"])
+        return crf_loss
+        # target, target_lengths = input['char_emb_ids'].clone(), input['char_lens'].clone()
+        # target[range(target.shape[0]), target_lengths-1]=char_alphabet_pad_id
+        # target = target[:, 1:]
+        # target_lengths = target_lengths-2
+        # ctc_loss = self.audio_encoder.loss(audio_repr, audio_output_lengths, target, target_lengths)
+        # return self.args.crf_coef * crf_loss + self.args.ctc_coef * ctc_loss
+    
+    def get_crfloss_and_repr(self, input):
+        crf_input, audio_repr, audio_output_lengths, tokenized_sp_repr, audio_mask = self.get_crf_input(input)
+        crf_loss = self.crf.neg_log_likelihood_loss(crf_input, input["label_mask"], input["label_ids"])
+        return crf_loss, audio_repr, audio_output_lengths, tokenized_sp_repr, audio_mask
+
+
+class JointTokenSeqtagModel(BaseEncoder):
+    def __init__(self, args, data, config):
+        super(JointTokenSeqtagModel, self).__init__(args)
+        self.audio_model = TokenizedAudioReprSeqtagModel(args, data, config)
+        if self.args.token_audio_checkpoint != 'None':
+            print('loading tokenized audio model from checkpoint %s for TokenizedAudioReprSeqtagModel' % self.args.token_audio_checkpoint)
+            self.audio_model.load_state_dict(torch.load(self.args.token_audio_checkpoint))
+        if self.args.text_encoder == "BERT":
+            plm_directory = args.bert_directory
+            self.name = "audio_BERT"
+            print("building BERT Encoder")
+        else:
+            raise Exception("Unexpected encoder: %s" % (self.args.encoder))
+        self.text_encoder = BertModel.from_pretrained(plm_directory)
+
+        if self.args.fusion_layer == "UMT":
+            self.fusion_layer = CoupledCMT(self.args)
+            output_dim = self.text_encoder.config.hidden_size * 3  # + self.args.audio_hidden_dim
+        else:
+            self.fusion_layer = GateAttentionFusionLayer(self.args)
+            output_dim = self.text_encoder.config.hidden_size * 2
+        if args.ner_type == "Flat_NER":
+            label_dim = data.flat_label_alphabet.size()
+        else:
+            label_dim = data.nested_label_alphabet.size()
+        # output_dim = output_dim + 366
+        self.hidden2tag = nn.Linear(output_dim, label_dim + 2)
+        self.text_encoder_crf = CRF(label_dim, args.use_gpu, args.crf_reduction)
+
+    def get_crf_input(self, input):
+        if self.args.text_encoder == "ZEN":
+            textual_repr = self.text_encoder(input_ids=input["input_ids"], input_ngram_ids=input["ngram_ids"],
+                                                   ngram_position_matrix=input["ngram_positions"],
+                                                   attention_mask=input["input_masks"], output_all_encoded_layers=False)[0]
+        else:
+            textual_repr = self.text_encoder(input["input_ids"], attention_mask=input["input_masks"])[0]
+        audio_crf_loss, audio_repr, encoder_out_lens, tokenized_sp_repr, audio_out_mask = self.audio_model.get_crfloss_and_repr(input)
+        # now use tokenized_sp_repr to fusion
+        # fusional_textual_repr = self.fusion_layer(textual_repr, input["input_masks"], tokenized_sp_repr, input["input_masks"])
+        fusional_textual_repr = self.fusion_layer(textual_repr, input["input_masks"], audio_repr, audio_out_mask.float())
+        multimodal_repr = torch.cat((textual_repr, fusional_textual_repr), dim=-1)
+        hidden_repr = self.hidden2tag(multimodal_repr)
+        return hidden_repr, audio_repr, encoder_out_lens, audio_crf_loss
+
+    def forward(self, input):
+        crf_input, _, _, _ = self.get_crf_input(input)
+        _, best_path = self.text_encoder_crf.viterbi_decode(crf_input, input["label_mask"])
+        return best_path
+    
+    def neg_log_likelihood(self, input, char_alphabet_pad_id):
+        crf_input, audio_repr, audio_output_lengths, audio_crf_loss = self.get_crf_input(input)
+        crf_loss = self.text_encoder_crf.neg_log_likelihood_loss(crf_input, input["label_mask"], input["label_ids"])
+        # return crf_loss
+        target, target_lengths = input['char_emb_ids'].clone(), input['char_lens'].clone()
+        target[range(target.shape[0]), target_lengths-1]=char_alphabet_pad_id
+        target = target[:, 1:]
+        target_lengths = target_lengths-2
+        ctc_loss = self.audio_model.audio_encoder.loss(audio_repr, audio_output_lengths, target, target_lengths)
+        return self.args.crf_coef * crf_loss + self.args.ctc_coef * ctc_loss + self.args.audio_crf_coef * audio_crf_loss
 
 
 
