@@ -101,3 +101,24 @@ nohup python joint_tokenized_txt_audio_train.py --processed_file ./data/generate
                                 --optimizer Adam \
                                 --visible_gpu 0 > nerbertmlm_joint_tokenized_notfusiontoken_wi-pretrained-audiotoken.log 2>&1 &
                                 (170300)
+
+
+nohup python joint_tokenized_txt_audio_train.py --processed_file ./data/generated_data/wenet_wo366_time_feat/data.pkl \
+                                --bert_directory /opt/data/private/slzhou/PLMs/neraishell-bert-base-chinese_lr1e5_epo20 \
+                                --generated_param_directory ./data/generated_data/nerbertmlm_adolr4e5_joint_tokenized_notfusiontoken_wi-pretrained-audiotoken/ \
+                                --emb_file None \
+                                --schema BILOU \
+                                --ner_type Nested_NER \
+                                --use_audio_feature True \
+                                --audio_hidden_dim 512 \
+                                --audio_directory notneeded \
+                                --token_audio_checkpoint ./data/generated_data/token_audio_crf/best.model \
+                                --ctc_conf conf/only_ctc_alldata.yaml \
+                                --num_mel_bins 80 \
+                                --vocab_path ./ASR-data/dict/char_dict.json \
+                                --text_encoder BERT \
+                                --use_emb False \
+                                --max_epoch 15 \
+                                --optimizer Adam \
+                                --visible_gpu 1 > nerbertmlm_adolr4e5-epo15_joint_tokenized_notfusiontoken_wi-pretrained-audiotoken.log 2>&1 &
+                                (181183)

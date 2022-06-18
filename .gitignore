@@ -6,6 +6,8 @@ CNERTA
 # other package
 supar
 wenet
+analyse
+pre-trained_ctc
 
 # log
 *.log

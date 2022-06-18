@@ -42,7 +42,6 @@ if __name__ == '__main__':
     lr_decay = 0.05
     audio_encoder_lr = 0.00002
     max_grad_norm = 5
-    ctc_coef = 0.0
     n_blocks = 6
 
     parser = argparse.ArgumentParser()
@@ -85,7 +84,10 @@ if __name__ == '__main__':
     model_arg.add_argument('--emb_dim', type=int, default=256)
     model_arg.add_argument('--random_emb', type=str2bool, default=True)
     model_arg.add_argument("--ctc_conf", type=str)
-    model_arg.add_argument('--audio_checkpoint', type=str, default='None')
+    model_arg.add_argument('--ctc_checkpoint', type=str, default='None')
+    model_arg.add_argument('--postlayer', type=int, default=6)
+    model_arg.add_argument("--postlayer_type", type=str, default='transformer')
+    model_arg.add_argument('--tem', type=int, default=5, help='temperature used in tokenizing')
 
     learning_arg = add_argument_group('Learning')
     learning_arg.add_argument('--max_audio_length', type=int, default=1468)
@@ -110,7 +112,7 @@ if __name__ == '__main__':
     learning_arg.add_argument('--optimizer', type=str, default='AdamW',
                               choices=['Adam', 'AdamW', 'RAdam', "SGD", 'RAdamW', 'AdaBelief'])
     learning_arg.add_argument('--adversarial_training', type=str2bool, default=False)
-    learning_arg.add_argument('--ctc_coef', type=float, default=ctc_coef)
+    learning_arg.add_argument('--ctc_coef', type=float, default=0.0)
     learning_arg.add_argument('--crf_coef', type=float, default=1)
 
     misc_arg = add_argument_group('MISC')
@@ -146,12 +148,7 @@ if __name__ == '__main__':
     configs['use_gpu'] = args.use_gpu
 
     model = TokenizedAudioReprSeqtagModel(args, data, configs)
-    # pretrained_audioencoder_dict = torch.load(args.generated_param_directory + "masked_pretrained_audio_full_epoch_150.model")
-    # # model.load_state_dict(audio_param)
-    # model_dict = model.state_dict()
-    # pretrained_dict = {k: v for k, v in pretrained_audioencoder_dict.items() if k in model_dict}
-    # model_dict.update(pretrained_dict)
-    # model.load_state_dict(model_dict)
+    
     for n, p in model.named_parameters():
         print(n)
     print(model)

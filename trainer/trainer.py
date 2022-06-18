@@ -69,7 +69,7 @@ class Trainer(nn.Module):
                         self.scheduler.step()
                     self.model.zero_grad()
                 if batch_id % 100 == 0 and batch_id != 0:
-                    print("     Instance: %d; loss: %.4f; lr: %.8f" % (start, avg_loss.avg, self.optimizer.param_groups[1]['lr']), flush=True)
+                    print("     Instance: %d; loss: %.4f; lr: %.8f" % (start, avg_loss.avg, self.optimizer.param_groups[0]['lr']), flush=True)
             gc.collect()
             torch.cuda.empty_cache()
             print("=== Epoch %d Test ===" % epoch, flush=True)
