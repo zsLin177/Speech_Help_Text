@@ -89,6 +89,7 @@ if __name__ == '__main__':
     model_arg.add_argument('--ctc_checkpoint', type=str, default='None')
     model_arg.add_argument('--postlayer', type=int, default=6)
     model_arg.add_argument("--postlayer_type", type=str, default='transformer')
+    model_arg.add_argument("--token_method", type=str, default='all')
     model_arg.add_argument('--tem', type=int, default=5, help='temperature used in tokenizing')
 
     learning_arg = add_argument_group('Learning')
@@ -166,4 +167,5 @@ if __name__ == '__main__':
     else:
         from trainer.trainer import Trainer
     trainer = Trainer(model, data, args, detailed_lr=False)
-    trainer.eval_model('valid')
+    trainer.eval_model('train')
+    # trainer.train_model()

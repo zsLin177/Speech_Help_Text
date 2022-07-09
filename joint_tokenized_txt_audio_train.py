@@ -38,13 +38,13 @@ def set_cpu(num=1):
 
 if __name__ == '__main__':
     textual_encoder_lr = 1e-5
-    textual_crf_lr = 0.1
+    textual_crf_lr = 1e-3
     lr_decay = 0.05
     audio_encoder_lr = 2e-5
-    audio_crf_lr = 0.01
+    audio_crf_lr = 1e-4
     max_grad_norm = 5
-    ctc_coef = 0.0
-    audio_crf_coef = 0.3
+    # ctc_coef = 0.0
+    # audio_crf_coef = 0.3
     n_blocks = 6
 
     parser = argparse.ArgumentParser()
@@ -88,7 +88,14 @@ if __name__ == '__main__':
     model_arg.add_argument('--random_emb', type=str2bool, default=True)
     model_arg.add_argument("--ctc_conf", type=str)
     model_arg.add_argument('--ctc_checkpoint', type=str, default='None')
+    model_arg.add_argument('--postlayer', type=int, default=6)
+    model_arg.add_argument("--postlayer_type", type=str, default='transformer')
+    model_arg.add_argument("--token_method", type=str, default='all')
+    model_arg.add_argument('--tem', type=int, default=5, help='temperature used in tokenizing')
     model_arg.add_argument('--token_audio_checkpoint', type=str, default='None')
+    model_arg.add_argument('--fusion_obj', type=str, default='raw',
+                              choices=['raw', 'tokenized', 'concat'])
+
 
     learning_arg = add_argument_group('Learning')
     learning_arg.add_argument('--max_audio_length', type=int, default=1468)
@@ -107,6 +114,7 @@ if __name__ == '__main__':
     learning_arg.add_argument('--audio_crf_lr', type=float, default=audio_crf_lr)
     learning_arg.add_argument('--fusion_layer_lr', type=float, default=1e-5)
     learning_arg.add_argument('--textual_crf_lr', type=float, default=textual_crf_lr)
+    learning_arg.add_argument('--crf_lr', type=float, default=0.1)
     learning_arg.add_argument('--lr_decay', type=float, default=lr_decay)
     learning_arg.add_argument('--weight_decay', type=float, default=1e-5)
     learning_arg.add_argument('--max_grad_norm', type=float, default=max_grad_norm)
@@ -114,9 +122,9 @@ if __name__ == '__main__':
     learning_arg.add_argument('--optimizer', type=str, default='AdamW',
                               choices=['Adam', 'AdamW', 'RAdam', "SGD", 'RAdamW', 'AdaBelief'])
     learning_arg.add_argument('--adversarial_training', type=str2bool, default=False)
-    learning_arg.add_argument('--ctc_coef', type=float, default=ctc_coef)
+    learning_arg.add_argument('--ctc_coef', type=float)
     learning_arg.add_argument('--crf_coef', type=float, default=1)
-    learning_arg.add_argument('--audio_crf_coef', type=float, default=audio_crf_coef)
+    learning_arg.add_argument('--audio_crf_coef', type=float)
 
     misc_arg = add_argument_group('MISC')
     misc_arg.add_argument('--refresh', type=str2bool, default=True)
@@ -164,5 +172,6 @@ if __name__ == '__main__':
         from trainer.fgm_trainer import Trainer
     else:
         from trainer.trainer import Trainer
-    trainer = Trainer(model, data, args, doublecrf=True)
+    # trainer = Trainer(model, data, args, doublecrf=True)
+    trainer = Trainer(model, data, args, doublecrf=False, detailed_lr=True, onlyasr=False)
     trainer.train_model()

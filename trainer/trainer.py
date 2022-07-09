@@ -314,7 +314,8 @@ class Trainer(nn.Module):
     def assign_optimizer(self, detailed=True):
         if detailed:
             no_decay = ['bias', 'LayerNorm.bias', 'LayerNorm.weight']
-            component = ['crf', 'audio_encoder', "fusion_layer"]
+            # component = ['crf', 'audio_encoder', "fusion_layer"]
+            component = ['crf', 'audio_model', "fusion_layer"]
             try:
                 grouped_params = [
                     {
@@ -333,13 +334,13 @@ class Trainer(nn.Module):
                     },
                     {
                         'params': [p for n, p in self.model.named_parameters() if
-                                not any(nd in n for nd in no_decay) and component[0] in n],
+                                not any(nd in n for nd in no_decay) and component[0] in n and component[1] not in n],
                         'weight_decay': self.args.weight_decay,
                         'lr': self.args.crf_lr
                     },
                     {
                         'params': [p for n, p in self.model.named_parameters() if
-                                any(nd in n for nd in no_decay) and component[0] in n],
+                                any(nd in n for nd in no_decay) and component[0] in n and component[1] not in n],
                         'weight_decay': 0.0,
                         'lr': self.args.crf_lr
                     },
@@ -431,24 +432,44 @@ class Trainer(nn.Module):
         # print(self.scheduler)
 
     def assign_optimizer_for_JointTokenSeqtagModel(self):
+        # grouped_params = [
+        #     {
+        #     'params': [p for n, p in self.model.named_parameters() if 'crf' not in n and 'text_encoder' in n],
+        #     'lr': self.args.textual_encoder_lr
+        #     },
+        #     {
+        #     'params': [p for n, p in self.model.named_parameters() if 'crf' in n and 'text_encoder' in n],
+        #     'lr': self.args.textual_crf_lr
+        #     },
+        #     {
+        #     'params': [p for n, p in self.model.named_parameters() if 'crf' not in n and 'audio_model' in n],
+        #     'lr': self.args.audio_encoder_lr
+        #     },
+        #     {
+        #     'params': [p for n, p in self.model.named_parameters() if 'crf' in n and 'audio_model' in n],
+        #     'lr': self.args.audio_crf_lr
+        #     }
+        # ]
+
         grouped_params = [
             {
-            'params': [p for n, p in self.model.named_parameters() if 'crf' not in n and 'text_encoder' in n],
+            'params': [p for n, p in self.model.named_parameters() if 'text_encoder' in n],
             'lr': self.args.textual_encoder_lr
             },
             {
-            'params': [p for n, p in self.model.named_parameters() if 'crf' in n and 'text_encoder' in n],
+            'params': [p for n, p in self.model.named_parameters() if 'main' in n],
             'lr': self.args.textual_crf_lr
             },
             {
-            'params': [p for n, p in self.model.named_parameters() if 'crf' not in n and 'audio_model' in n],
+            'params': [p for n, p in self.model.named_parameters() if 'audio_model' in n and n != 'audio_model.hidden2tag.weight' and n!= 'audio_model.hidden2tag.bias' and n!= 'audio_model.crf.transitions'],
             'lr': self.args.audio_encoder_lr
             },
             {
-            'params': [p for n, p in self.model.named_parameters() if 'crf' in n and 'audio_model' in n],
+            'params': [p for n, p in self.model.named_parameters() if n == 'audio_model.hidden2tag.weight' or n == 'audio_model.hidden2tag.bias' or n == 'audio_model.crf.transitions'],
             'lr': self.args.audio_crf_lr
             }
         ]
+
         if self.args.optimizer == 'Adam':
                 self.optimizer = optim.Adam(grouped_params)
         elif self.args.optimizer == 'AdamW':

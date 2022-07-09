@@ -100,6 +100,11 @@ class GateAttentionFusionLayer(nn.Module):
 
         return audio_repr
 
+    def only_dim_match(self, audio_hidden_repr):
+        if self.args.audio_hidden_dim != self.config.hidden_size:
+            audio_hidden_repr = self.dim_match(audio_hidden_repr)
+        return audio_hidden_repr
+
 class TripleFusionLayer(nn.Module):
 
     def __init__(self, args):

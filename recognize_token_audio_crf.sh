@@ -21,11 +21,11 @@ python recognize_token_audio_crf.py --processed_file ./data/generated_data/wenet
 
 python recognize_token_audio_crf.py --processed_file ./data/generated_data/wenet_wo366_time_feat/data.pkl \
                                 --bert_directory /opt/data/private/slzhou/PLMs/bert-base-chinese \
-                                --generated_param_directory ./data/generated_data/token_audio_crf_3lstm_ctc0.1/ \
+                                --generated_param_directory ./data/generated_data/debug/ \
                                 --emb_file None \
                                 --schema BILOU \
                                 --ner_type Nested_NER \
-                                --checkpoint ./data/generated_data/token_audio_crf_3lstm_ctc0.1/best.model \
+                                --checkpoint ./data/generated_data/dpmask_token_audio_crf_3lstm_ctc0.1/best.model \
                                 --use_audio_feature True \
                                 --audio_hidden_dim 512 \
                                 --audio_directory notneeded \
@@ -34,6 +34,7 @@ python recognize_token_audio_crf.py --processed_file ./data/generated_data/wenet
                                 --num_mel_bins 80 \
                                 --postlayer 3 \
                                 --postlayer_type lstm \
+                                --token_method dpmask \
                                 --ctc_coef 0.1 \
                                 --vocab_path ./ASR-data/dict/char_dict.json \
                                 --text_encoder BERT \

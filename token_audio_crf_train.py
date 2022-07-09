@@ -74,6 +74,7 @@ if __name__ == '__main__':
     feature_arg.add_argument('--num_mel_bins', type=int, default=40, choices=[40, 80])
 
     model_arg = add_argument_group('Model')
+    model_arg.add_argument('--checkpoint', type=str, default='None')
     model_arg.add_argument('--text_encoder', type=str, default="MacBERT", choices=['BERT', 'ZEN', 'MacBERT', 'WoBERT'])
     model_arg.add_argument('--audio_hidden_dim', type=int, default=256, help="the dimension of audio encoder")
     model_arg.add_argument('--n_blocks', type=int, default=n_blocks, help="the num of transformer blocks in audio encoder")
@@ -87,6 +88,7 @@ if __name__ == '__main__':
     model_arg.add_argument('--ctc_checkpoint', type=str, default='None')
     model_arg.add_argument('--postlayer', type=int, default=6)
     model_arg.add_argument("--postlayer_type", type=str, default='transformer')
+    model_arg.add_argument("--token_method", type=str, default='all')
     model_arg.add_argument('--tem', type=int, default=5, help='temperature used in tokenizing')
 
     learning_arg = add_argument_group('Learning')
@@ -148,6 +150,14 @@ if __name__ == '__main__':
     configs['use_gpu'] = args.use_gpu
 
     model = TokenizedAudioReprSeqtagModel(args, data, configs)
+    
+    if args.checkpoint != 'None':
+        if torch.cuda.is_available():
+            print('Checkpoint: loading from checkpoint %s for GPU' % args.checkpoint)
+            model.load_state_dict(torch.load(args.checkpoint))
+        else:
+            print('Checkpoint: loading from checkpoint %s for CPU' % args.checkpoint)
+            model.load_state_dict(torch.load(args.checkpoint, map_location='cpu'))
     
     for n, p in model.named_parameters():
         print(n)

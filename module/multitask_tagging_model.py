@@ -226,8 +226,12 @@ class TokenizedAudioReprSeqtagModel(BaseEncoder):
         audio_repr, audio_mask = self.audio_encoder._forward_encoder(input["audio_features"], input["audio_feautre_lengths"])
         audio_mask = audio_mask.squeeze(1)
         encoder_out_lens = audio_mask.sum(1)
-        probs = self.audio_encoder.ctc.probs(audio_repr, self.args.tem)
-        tokenized_sp_repr = self.tokenized_sp_embed.get_tokenized_sp_repr(audio_repr, input['char_emb_ids'], probs, ~(input["input_masks"].bool()))
+        # probs = self.audio_encoder.ctc.probs(audio_repr, self.args.tem)
+        probs, logits = self.audio_encoder.ctc.probs(audio_repr, self.args.tem, return_logit=True)
+        if self.args.token_method == 'dpmask':
+            tokenized_sp_repr = self.tokenized_sp_embed.dp_cut_sp_repr(audio_repr, input['char_emb_ids'], input['char_lens'], ~(input["input_masks"].bool()), logits)
+        elif self.args.token_method == 'all':
+            tokenized_sp_repr = self.tokenized_sp_embed.get_tokenized_sp_repr(audio_repr, input['char_emb_ids'], probs, ~(input["input_masks"].bool()))
         hidden_repr = self.hidden2tag(tokenized_sp_repr)
         return hidden_repr, audio_repr, encoder_out_lens, tokenized_sp_repr, audio_mask
 
@@ -280,8 +284,12 @@ class JointTokenSeqtagModel(BaseEncoder):
         else:
             label_dim = data.nested_label_alphabet.size()
         # output_dim = output_dim + 366
+        # self.hidden2tag = nn.Linear(output_dim, label_dim + 2)
+        # self.text_encoder_crf = CRF(label_dim, args.use_gpu, args.crf_reduction)
+
         self.hidden2tag = nn.Linear(output_dim, label_dim + 2)
-        self.text_encoder_crf = CRF(label_dim, args.use_gpu, args.crf_reduction)
+        self.crf = CRF(label_dim, args.use_gpu, args.crf_reduction)
+
 
     def get_crf_input(self, input):
         if self.args.text_encoder == "ZEN":
@@ -293,19 +301,24 @@ class JointTokenSeqtagModel(BaseEncoder):
         audio_crf_loss, audio_repr, encoder_out_lens, tokenized_sp_repr, audio_out_mask = self.audio_model.get_crfloss_and_repr(input)
         # now use tokenized_sp_repr to fusion
         # fusional_textual_repr = self.fusion_layer(textual_repr, input["input_masks"], tokenized_sp_repr, input["input_masks"])
-        fusional_textual_repr = self.fusion_layer(textual_repr, input["input_masks"], audio_repr, audio_out_mask.float())
+        if self.args.fusion_obj == 'raw':
+            fusional_textual_repr = self.fusion_layer(textual_repr, input["input_masks"], audio_repr, audio_out_mask.float())
+        elif self.args.fusion_obj == 'tokenized':
+            fusional_textual_repr = self.fusion_layer(textual_repr, input["input_masks"], tokenized_sp_repr, input["input_masks"])
+        elif self.args.fusion_obj == 'concat':
+            fusional_textual_repr = self.fusion_layer.only_dim_match(tokenized_sp_repr)
         multimodal_repr = torch.cat((textual_repr, fusional_textual_repr), dim=-1)
         hidden_repr = self.hidden2tag(multimodal_repr)
         return hidden_repr, audio_repr, encoder_out_lens, audio_crf_loss
 
     def forward(self, input):
         crf_input, _, _, _ = self.get_crf_input(input)
-        _, best_path = self.text_encoder_crf.viterbi_decode(crf_input, input["label_mask"])
+        _, best_path = self.crf.viterbi_decode(crf_input, input["label_mask"])
         return best_path
     
     def neg_log_likelihood(self, input, char_alphabet_pad_id):
         crf_input, audio_repr, audio_output_lengths, audio_crf_loss = self.get_crf_input(input)
-        crf_loss = self.text_encoder_crf.neg_log_likelihood_loss(crf_input, input["label_mask"], input["label_ids"])
+        crf_loss = self.crf.neg_log_likelihood_loss(crf_input, input["label_mask"], input["label_ids"])
         # return crf_loss
         target, target_lengths = input['char_emb_ids'].clone(), input['char_lens'].clone()
         target[range(target.shape[0]), target_lengths-1]=char_alphabet_pad_id
