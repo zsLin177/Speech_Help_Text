@@ -2,6 +2,7 @@
 ASR-data
 data
 CNERTA
+analyse
 
 # other package
 supar
@@ -11,3 +12,4 @@ wenet
 *.log
 *.txt
 *.pyc
+*.pt

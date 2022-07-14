@@ -1,5 +1,5 @@
 accum_grad: 2
-cmvn_file: /opt/data/private/slzhou/M3T-CNERTA/ASR-data/global_cmvn
+cmvn_file: /data5/slzhou/Speech_Help_Text/M3T-CNERTA/ASR-data/global_cmvn
 dataset_conf:
   batch_conf:
     batch_size: 16

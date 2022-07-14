@@ -89,6 +89,7 @@ if __name__ == '__main__':
     model_arg.add_argument("--ctc_conf", type=str)
     model_arg.add_argument('--ctc_checkpoint', type=str, default='None')
     model_arg.add_argument('--token_audio_checkpoint', type=str, default='None')
+    model_arg.add_argument('--token_method', type=str, default='all', choices=["all", "dpmask"])
 
     learning_arg = add_argument_group('Learning')
     learning_arg.add_argument('--max_audio_length', type=int, default=1468)

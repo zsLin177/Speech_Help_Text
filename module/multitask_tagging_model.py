@@ -226,8 +226,13 @@ class TokenizedAudioReprSeqtagModel(BaseEncoder):
         audio_repr, audio_mask = self.audio_encoder._forward_encoder(input["audio_features"], input["audio_feautre_lengths"])
         audio_mask = audio_mask.squeeze(1)
         encoder_out_lens = audio_mask.sum(1)
-        probs = self.audio_encoder.ctc.probs(audio_repr)
-        tokenized_sp_repr = self.tokenized_sp_embed.get_tokenized_sp_repr(audio_repr, input['char_emb_ids'], probs, ~(input["input_masks"].bool()))
+        # probs = self.audio_encoder.ctc.probs(audio_repr)
+        # tokenized_sp_repr = self.tokenized_sp_embed.get_tokenized_sp_repr(audio_repr, input['char_emb_ids'], probs, ~(input["input_masks"].bool()))
+        probs, logits = self.audio_encoder.ctc.probs(audio_repr, return_logit=True)
+        if self.args.token_method == 'dpmask':
+            tokenized_sp_repr = self.tokenized_sp_embed.dp_cut_sp_repr(audio_repr, input['char_emb_ids'], input['char_lens'], ~(input["input_masks"].bool()), logits)
+        elif self.args.token_method == 'all':
+            tokenized_sp_repr = self.tokenized_sp_embed.get_tokenized_sp_repr(audio_repr, input['char_emb_ids'], probs, ~(input["input_masks"].bool()))
         hidden_repr = self.hidden2tag(tokenized_sp_repr)
         return hidden_repr, audio_repr, encoder_out_lens, tokenized_sp_repr, audio_mask
 
